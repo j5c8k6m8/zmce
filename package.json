@@ -1,0 +1,37 @@
+{
+  "name": "zmce",
+  "version": "0.0.1",
+  "description": "Zenn Markdown Code Embed",
+  "bin": {
+    "zmce": "./bin/zmce"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "jest",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/j5c8k6m8/zmce.git"
+  },
+  "dependencies": {
+    "fs-extra": "^9.0.1",
+    "colors": "^1.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^3.9.7",
+    "@types/jest": "^25.2.3",
+    "@types/fs-extra": "^9.0.1",
+    "jest": "^26.0.1",
+    "ts-jest": "^26.1.0"
+  },
+  "author": "j5c8k6m8",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/j5c8k6m8/zmce/issues"
+  },
+  "homepage": "https://github.com/j5c8k6m8/zmce#readme"
+}
