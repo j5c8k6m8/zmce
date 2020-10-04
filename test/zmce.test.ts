@@ -5,6 +5,7 @@ import colors from "colors/safe";
 const zmce = require("../src/zmce.ts");
 
 const articlesDirectoryName = "articles";
+const booksDirectoryName = "books";
 const modulesDirectoryName = "submodules";
 
 const spyInfo = jest.spyOn(console, "info").mockImplementation((x) => x);
@@ -14,6 +15,16 @@ const spyError = jest.spyOn(console, "error").mockImplementation((x) => x);
 const spyWriteFileSync = jest
   .spyOn(fs, "writeFileSync")
   .mockImplementation((x) => x);
+
+const cwd = process.cwd();
+
+const inSpyCwd = (relativePath: string, callback: () => void) => {
+  const spyCwd = jest
+    .spyOn(process, "cwd")
+    .mockImplementation(() => join(cwd, relativePath));
+  callback();
+  spyCwd.mockRestore();
+};
 
 const expectWriteFileSync = (basePath: string, expectedPath: string) => {
   spyWriteFileSync.mock.calls.forEach((c) => {
@@ -31,8 +42,6 @@ const expectWriteFileSync = (basePath: string, expectedPath: string) => {
   });
 };
 
-const cwd = process.cwd();
-
 describe("zmce error case", () => {
   afterEach(() => {
     expect(spyInfo.mock.calls).toEqual([
@@ -46,59 +55,65 @@ describe("zmce error case", () => {
   });
 
   it("not exists directories", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/error_case/not_exists_directories")
-      );
-    zmce.main();
-    expect(spyError.mock.calls).toEqual([
-      [
-        colors.red(
-          `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
-        ),
-      ],
-      [
-        colors.red(
-          `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
-        ),
-      ],
-    ]);
-    spyCwd.mockRestore();
-  });
-
-  it("not exists articeles directories", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/error_case/not_exists_articeles_directories")
-      );
-    zmce.main();
-    expect(spyError.mock.calls).toEqual([
-      [
-        colors.red(
-          `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
-        ),
-      ],
-    ]);
-    spyCwd.mockRestore();
+    inSpyCwd("test/error_case/not_exists_directories", () => {
+      zmce.main();
+      expect(spyError.mock.calls).toEqual([
+        [
+          colors.red(
+            `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
+          ),
+        ],
+        [
+          colors.red(
+            `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
+          ),
+        ],
+        [
+          colors.red(
+            `プロジェクトルートに${booksDirectoryName}ディレクトリを作成してください`
+          ),
+        ],
+      ]);
+    });
   });
 
   it("not exists submodules directories", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/error_case/not_exists_submodules_directories")
-      );
-    zmce.main();
-    expect(spyError.mock.calls).toEqual([
-      [
-        colors.red(
-          `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
-        ),
-      ],
-    ]);
-    spyCwd.mockRestore();
+    inSpyCwd("test/error_case/not_exists_submodules_directories", () => {
+      zmce.main();
+      expect(spyError.mock.calls).toEqual([
+        [
+          colors.red(
+            `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
+          ),
+        ],
+      ]);
+    });
+  });
+
+  it("not exists articeles directories", () => {
+    inSpyCwd("test/error_case/not_exists_articeles_directories", () => {
+      zmce.main();
+      expect(spyError.mock.calls).toEqual([
+        [
+          colors.red(
+            `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
+          ),
+        ],
+      ]);
+    });
+  });
+
+  it("not exists books directories", () => {
+    inSpyCwd("test/error_case/not_exists_books_directories", () => {
+      zmce.main();
+      expect(spyError.mock.calls).toEqual([
+        [
+          colors.red(
+            `プロジェクトルートに${booksDirectoryName}ディレクトリを作成してください`
+          ),
+        ],
+      ]);
+    });
   });
 });
 
@@ -115,20 +130,16 @@ describe("zmce warn case", () => {
   });
 
   it("not exists code file", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/warn_case/not_exists_code_file")
-      );
-    zmce.main();
-    expect(spyWarn.mock.calls).toEqual([
-      [
-        colors.yellow(
-          "[articles/test01.md] モジュールディレクトリに「test_repository/test01.md」ファイルがありません"
-        ),
-      ],
-    ]);
-    spyCwd.mockRestore();
+    inSpyCwd("test/warn_case/not_exists_code_file", () => {
+      zmce.main();
+      expect(spyWarn.mock.calls).toEqual([
+        [
+          colors.yellow(
+            "[articles/test01.md] モジュールディレクトリに「test_repository/test01.md」ファイルがありません"
+          ),
+        ],
+      ]);
+    });
   });
 });
 
@@ -145,68 +156,68 @@ describe("zmce skip case", () => {
     process.exitCode = 0;
   });
 
-  it("not exists md file", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() => join(cwd, "test/skip_case/not_exists_md_file"));
-    zmce.main();
-    spyCwd.mockRestore();
+  it("root md file", () => {
+    inSpyCwd("test/skip_case/root_md_file", () => {
+      zmce.main();
+    });
+  });
+
+  it("not exists article md file", () => {
+    inSpyCwd("test/skip_case/not_exists_article_md_file", () => {
+      zmce.main();
+    });
+  });
+
+  it("not exists book md file", () => {
+    inSpyCwd("test/skip_case/not_exists_book_md_file", () => {
+      zmce.main();
+    });
+  });
+
+  it("books direct children md file", () => {
+    inSpyCwd("test/skip_case/books_direct_children_md_file", () => {
+      zmce.main();
+    });
   });
 
   it("not exists replace code", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/skip_case/not_exists_replace_code")
-      );
-    zmce.main();
-    spyCwd.mockRestore();
+    inSpyCwd("test/skip_case/not_exists_replace_code", () => {
+      zmce.main();
+    });
   });
 
   it("not change md file", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() => join(cwd, "test/skip_case/not_change_md_file"));
-    zmce.main();
-    spyCwd.mockRestore();
+    inSpyCwd("test/skip_case/not_change_md_file", () => {
+      zmce.main();
+    });
   });
 
   it("not change md file with codeblock", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/skip_case/not_change_md_file_with_codeblock")
-      );
-    zmce.main();
-    spyCwd.mockRestore();
+    inSpyCwd("test/skip_case/not_change_md_file_with_codeblock", () => {
+      zmce.main();
+    });
   });
 
   it("not exists end phrase", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() =>
-        join(cwd, "test/skip_case/not_exists_end_phrase")
-      );
-    zmce.main();
-    spyCwd.mockRestore();
+    inSpyCwd("test/skip_case/not_exists_end_phrase", () => {
+      zmce.main();
+    });
   });
 });
 
 const normal_case_test = (testDirectory: string, changeMdFiles: [string]) => {
-  const spyCwd = jest
-    .spyOn(process, "cwd")
-    .mockImplementation(() => join(cwd, testDirectory + "/received"));
-  zmce.main();
-  expectWriteFileSync(
-    join(cwd, testDirectory + "/received"),
-    join(cwd, testDirectory + "/expected")
-  );
-  expect(spyInfo.mock.calls).toEqual([
-    [colors.cyan("[START] zmce")],
-    ...changeMdFiles.map((f) => [`${f}のコードブロックを修正しました。`]),
-    [colors.cyan("[ END ] zmce")],
-  ]);
-  spyCwd.mockRestore();
+  inSpyCwd(join(testDirectory, "received"), () => {
+    zmce.main();
+    expect(spyInfo.mock.calls).toEqual([
+      [colors.cyan("[START] zmce")],
+      ...changeMdFiles.map((f) => [`[${f}] コードブロックを修正しました。`]),
+      [colors.cyan("[ END ] zmce")],
+    ]);
+    expectWriteFileSync(
+      join(cwd, join(testDirectory, "received")),
+      join(cwd, join(testDirectory, "expected"))
+    );
+  });
 };
 
 describe("zmce normal case", () => {
@@ -217,61 +228,120 @@ describe("zmce normal case", () => {
     process.exitCode = 0;
   });
 
-  it("simple init", () => {
-    normal_case_test("test/normal_case/simple_init", ["test01.md"]);
+  it("simple article init", () => {
+    normal_case_test("test/normal_case/simple_article_init", ["articles/test01.md"]);
+  });
+
+  it("simple book init", () => {
+    normal_case_test("test/normal_case/simple_book_init", ["books/book_test/test01.md"]);
   });
 
   it("simple change", () => {
-    normal_case_test("test/normal_case/simple_change", ["test01.md"]);
+    normal_case_test("test/normal_case/simple_change", ["articles/test01.md"]);
   });
 
   it("simple more info", () => {
-    normal_case_test("test/normal_case/simple_more_info", ["test01.md"]);
+    normal_case_test("test/normal_case/simple_more_info", [
+      "articles/test01.md",
+    ]);
   });
 
   it("replace_md_with_codeblock", () => {
     normal_case_test("test/normal_case/replace_md_with_codeblock", [
-      "test01.md",
+      "articles/test01.md",
     ]);
   });
 });
 
-// TODO total_caseだけかく
 describe("zmce total case", () => {
   it("total case", () => {
-    const spyCwd = jest
-      .spyOn(process, "cwd")
-      .mockImplementation(() => join(cwd, "test/total_case/received"));
-    zmce.main();
-    expectWriteFileSync(
-      join(cwd, "test/total_case/received"),
-      join(cwd, "test/total_case/expected")
-    );
-    expect(spyInfo.mock.calls).toEqual([
-      [colors.cyan("[START] zmce")],
-      [`03_normal01.mdのコードブロックを修正しました。`],
-      [`04_total01.mdのコードブロックを修正しました。`],
-      [`05_normal02.mdのコードブロックを修正しました。`],
-      [`07_total02.mdのコードブロックを修正しました。`],
-      [colors.cyan("[ END ] zmce")],
-    ]);
-    expect(spyWarn.mock.calls).toEqual([
-      [ colors.yellow(
-        "[articles/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
-      ) ],
-      [ colors.yellow(
-        "[articles/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
-      ) ],
-      [ colors.yellow(
-        "[articles/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
-      ) ],
-      [ colors.yellow(
-        "[articles/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
-      ) ],
-    ]);
-    expect(spyError.mock.calls).toEqual([]);
-    expect(process.exitCode).toBe(0);
-    process.exitCode = 0;
-    spyCwd.mockRestore();
+    inSpyCwd("test/total_case/received", () => {
+      zmce.main();
+      expect(spyInfo.mock.calls).toEqual([
+        [colors.cyan("[START] zmce")],
+        [`[articles/03_normal01.md] コードブロックを修正しました。`],
+        [`[articles/04_total01.md] コードブロックを修正しました。`],
+        [`[articles/05_normal02.md] コードブロックを修正しました。`],
+        [`[articles/07_total02.md] コードブロックを修正しました。`],
+        [`[books/book_test1/03_normal01.md] コードブロックを修正しました。`],
+        [`[books/book_test1/04_total01.md] コードブロックを修正しました。`],
+        [`[books/book_test1/05_normal02.md] コードブロックを修正しました。`],
+        [`[books/book_test1/07_total02.md] コードブロックを修正しました。`],
+        [`[books/book_test2/03_normal01.md] コードブロックを修正しました。`],
+        [`[books/book_test2/04_total01.md] コードブロックを修正しました。`],
+        [`[books/book_test2/05_normal02.md] コードブロックを修正しました。`],
+        [`[books/book_test2/07_total02.md] コードブロックを修正しました。`],
+        [colors.cyan("[ END ] zmce")],
+      ]);
+      expect(spyWarn.mock.calls).toEqual([
+        [
+          colors.yellow(
+            "[articles/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[articles/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[articles/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[articles/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test1/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test1/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test1/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test1/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test2/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test2/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test2/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
+          ),
+        ],
+        [
+          colors.yellow(
+            "[books/book_test2/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
+          ),
+        ],
+      ]);
+      expect(spyError.mock.calls).toEqual([]);
+      expectWriteFileSync(
+        join(cwd, "test/total_case/received"),
+        join(cwd, "test/total_case/expected")
+      );
+      expect(process.exitCode).toBe(0);
+      process.exitCode = 0;
+    });
   });
 });
