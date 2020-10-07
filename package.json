@@ -1,6 +1,6 @@
 {
   "name": "zmce",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Zenn Markdown Code Embed",
   "bin": {
     "zmce": "./bin/zmce"
