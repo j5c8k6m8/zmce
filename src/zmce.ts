@@ -6,9 +6,9 @@ import colors from "colors/safe";
 const articlesDirectoryName = "articles";
 const booksDirectoryName = "books";
 const modulesDirectoryName = "submodules";
-const replaceCodePattern = /(^````*)([^:\n]*):([^:\n]*):([^:\n]+)(.*$)([^]*?)(^```$)/gm;
-const replaceEscapePattern = /^```/gm;
-const replaceEscapeValue = "\\```";
+const replaceCodeSymbol = "```";
+const replaceCodePattern = new RegExp(`(^${replaceCodeSymbol})([^:\n]*):([^:\n]*):([^:\n]+)(.*$)([^]*?)(^${replaceCodeSymbol}$)`, 'gm');
+const checkPattern = new RegExp(`^${replaceCodeSymbol}`, 'm');
 const mdRegex = /\.md$/;
 
 export function main() {
@@ -48,7 +48,9 @@ export function main() {
     let allBookDirs = fs.readdirSync(join(process.cwd(), booksDirectoryName));
     let bookDirs = allBookDirs.filter((f) => {
       try {
-        return fs.statSync(join(process.cwd(), booksDirectoryName, f)).isDirectory();
+        return fs
+          .statSync(join(process.cwd(), booksDirectoryName, f))
+          .isDirectory();
       } catch (e) {
         return false;
       }
@@ -113,10 +115,14 @@ export function main() {
             );
             return match;
           }
-          afterCode = afterCode.replace(
-            replaceEscapePattern,
-            replaceEscapeValue
-          );
+          if (checkPattern.test(afterCode)) {
+            console.warn(
+              colors.yellow(
+                `[${relativePath}] 「${codePath.trim()}」ファイル内に使用できないパターン(^${replaceCodeSymbol})が含まれています。`
+              )
+            );
+            return match;
+          }
           return `${beginMark}${codeType}:${codeName}:${codePath}${other}\n${afterCode}\n${afterMark}`;
         }
       );

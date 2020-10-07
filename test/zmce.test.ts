@@ -141,6 +141,19 @@ describe("zmce warn case", () => {
       ]);
     });
   });
+
+  it("exists codeblock", () => {
+    inSpyCwd("test/warn_case/exists_codeblock", () => {
+      zmce.main();
+      expect(spyWarn.mock.calls).toEqual([
+        [
+          colors.yellow(
+            "[articles/test01.md] 「test/test.md」ファイル内に使用できないパターン(^```)が含まれています。"
+          ),
+        ],
+      ]);
+    });
+  });
 });
 
 describe("zmce skip case", () => {
@@ -192,12 +205,6 @@ describe("zmce skip case", () => {
     });
   });
 
-  it("not change md file with codeblock", () => {
-    inSpyCwd("test/skip_case/not_change_md_file_with_codeblock", () => {
-      zmce.main();
-    });
-  });
-
   it("not exists end phrase", () => {
     inSpyCwd("test/skip_case/not_exists_end_phrase", () => {
       zmce.main();
@@ -242,12 +249,6 @@ describe("zmce normal case", () => {
 
   it("simple more info", () => {
     normal_case_test("test/normal_case/simple_more_info", [
-      "articles/test01.md",
-    ]);
-  });
-
-  it("replace_md_with_codeblock", () => {
-    normal_case_test("test/normal_case/replace_md_with_codeblock", [
       "articles/test01.md",
     ]);
   });
