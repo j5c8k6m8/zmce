@@ -1,12 +1,12 @@
 {
   "name": "zmce",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Zenn Markdown Code Embed",
   "bin": {
     "zmce": "./bin/zmce"
   },
   "files": [
-    "dist"
+    "dist/src"
   ],
   "scripts": {
     "test": "jest",
