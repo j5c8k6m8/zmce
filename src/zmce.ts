@@ -259,12 +259,12 @@ function chapterFilesCodeEmbed(
 }
 function codeEmbed(
   basePath: string,
-  relativePath: string,
+  mdPath: string,
   fileConfig: FileConfig
 ): void {
   let text;
   try {
-    text = fs.readFileSync(join(basePath, relativePath), "utf8");
+    text = fs.readFileSync(join(basePath, mdPath), "utf8");
   } catch (e) {
     return;
   }
@@ -281,26 +281,27 @@ function codeEmbed(
       afterMark
     ) => {
       let afterCode;
+      codePath = codePath.trim();
+      const [codeAbsPath, codeRelativePath] = getCodeAbsRelativePath(
+        basePath,
+        fileConfig.relativeRoot,
+        mdPath,
+        codePath
+      );
       try {
         afterCode = fs.readFileSync(
-          join(basePath, fileConfig.relativeRoot, codePath.trim()),
+          codeAbsPath,
           "utf8"
         );
       } catch (e) {
         consoleWarn(
-          `[${relativePath}] 「${join(
-            fileConfig.relativeRoot,
-            codePath.trim()
-          )}」ファイルがありません`
+          `[${mdPath}] 「${codeRelativePath}」ファイルがありません`
         );
         return match;
       }
       if (getCheckPattern(fileConfig.fenceStr).test(afterCode)) {
         consoleWarn(
-          `[${relativePath}] 「${join(
-            fileConfig.relativeRoot,
-            codePath.trim()
-          )}」ファイル内に使用できないパターン(^${
+          `[${mdPath}] 「${codeRelativePath}」ファイル内に使用できないパターン(^${
             fileConfig.fenceStr
           })が含まれています。`
         );
@@ -310,8 +311,8 @@ function codeEmbed(
     }
   );
   if (afterText != text) {
-    fs.writeFileSync(join(basePath, relativePath), afterText, "utf8");
-    consoleInfo(`[${relativePath}] コードブロックを修正しました。`);
+    fs.writeFileSync(join(basePath, mdPath), afterText, "utf8");
+    consoleInfo(`[${mdPath}] コードブロックを修正しました。`);
   }
 }
 
@@ -324,6 +325,22 @@ function getReplaceCodePattern(fenceStr: string) {
 
 function getCheckPattern(fenceStr: string) {
   return new RegExp(`^${fenceStr}`, "m");
+}
+
+function getCodeAbsRelativePath(
+  basePath: string,
+  relativeRoot: string,
+  mdPath: string,
+  codePath: string
+): [string, string] {
+  if (codePath.startsWith('/')) {
+    return [codePath, codePath];
+  } else if(/^(\.\/|\.\.\/)/.test(codePath)) {
+    let mdDir = dirname(mdPath)
+    return [join(basePath, mdDir, codePath), join(mdDir, codePath)];
+  } else {
+    return [join(basePath, relativeRoot, codePath), join(relativeRoot, codePath)];
+  }
 }
 
 function consoleError(msg: string): void {
