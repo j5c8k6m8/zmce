@@ -1,0 +1,4 @@
+fenceStr: "````"
+articles:
+    test01:
+        fenceStr: "~~~"

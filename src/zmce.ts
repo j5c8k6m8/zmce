@@ -1,56 +1,210 @@
 // ref: https://github.com/zenn-dev/zenn-editor/blob/master/packages/zenn-cli/utils/api/
 import fs from "fs-extra";
-import { join } from "path";
+import { basename, dirname, join } from "path";
+import yaml from "js-yaml";
 import colors from "colors/safe";
 
 const articlesDirectoryName = "articles";
 const booksDirectoryName = "books";
-const modulesDirectoryName = "submodules";
-const replaceCodeSymbol = "```";
-const replaceCodePattern = new RegExp(`(^${replaceCodeSymbol})([^:\n]*):([^:\n]*):([^:\n]+)(.*$)([^]*?)(^${replaceCodeSymbol}$)`, 'gm');
-const checkPattern = new RegExp(`^${replaceCodeSymbol}`, 'm');
-const mdRegex = /\.md$/;
+const configFileNameWithoutExtension = "zmce.config";
+const defaultRelativeRoot = "submodules";
+const defaultFenceStr = "```";
+
+type Config = {
+  defaultFileConfig: FileConfig;
+  articles: { [key: string]: FileConfig };
+  books: { [key: string]: FileConfig };
+};
+
+type FileConfig = {
+  relativeRoot: string;
+  fenceStr: FenceStr;
+};
+
+type FenceStr = string;
+
+function isFenceStr(arg: unknown): arg is FenceStr {
+  return typeof arg === "string" && /^(````*|~~~~*)$/.test(arg);
+}
 
 export function main() {
-  console.info(colors.cyan(`[START] zmce`));
-
-  try {
-    fs.readdirSync(join(process.cwd(), modulesDirectoryName));
-  } catch (e) {
-    console.error(
-      colors.red(
-        `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
-      )
+  consoleInfoSimple(`[zmce] 処理を開始します。`);
+  const cwd = process.cwd();
+  const config = getConfig(cwd);
+  const articleFiles = getArticleFiles(cwd);
+  const chapterFiles = getChapterFiles(cwd);
+  if (process.exitCode == 1) {
+    consoleInfoSimple(
+      `[zmce] エラーが発生したため、置換処理を行わずに終了します。`
     );
-    process.exitCode = 1;
+  } else {
+    articleFilesCodeEmbed(cwd, articleFiles, config);
+    chapterFilesCodeEmbed(cwd, chapterFiles, config);
+    consoleInfoSimple(`[zmce] 処理を終了します。`);
   }
+}
 
-  let articleFiles;
+function getConfig(basePath: string): Config {
+  let fileRaw = null;
+  let configFileName = `${configFileNameWithoutExtension}.yaml`;
+  try {
+    fileRaw = fs.readFileSync(join(basePath, configFileName), "utf8");
+  } catch (e) {
+    try {
+      let configFileName = `${configFileNameWithoutExtension}.yml`;
+      fileRaw = fs.readFileSync(join(basePath, configFileName), "utf8");
+    } catch (e) {}
+  }
+  return buildConfig(fileRaw, configFileName);
+}
+
+function buildConfig(arg: string | null, configFileName: string): Config {
+  let fileConfig: any;
+  let relativeRoot = defaultRelativeRoot;
+  let fenceStr = defaultFenceStr;
+  const articles: { [key: string]: FileConfig } = {};
+  const books: { [key: string]: FileConfig } = {};
+  if (arg) {
+    try {
+      fileConfig = yaml.safeLoad(arg);
+    } catch (e) {
+      consoleError(
+        `[${configFileName}] 設定ファイルのフォーマットがyamlファイルとして不正です。`
+      );
+    }
+  }
+  if (isHash(fileConfig)) {
+    if ("relativeRoot" in fileConfig) {
+      if (typeof fileConfig.relativeRoot === "string") {
+        relativeRoot = fileConfig.relativeRoot;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのrelativeRootプロパティには文字列を指定してください。`
+        );
+      }
+    }
+    if ("fenceStr" in fileConfig) {
+      if (isFenceStr(fileConfig.fenceStr)) {
+        fenceStr = fileConfig.fenceStr;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのfenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`
+        );
+      }
+    }
+    if ("articles" in fileConfig) {
+      if (isHash(fileConfig.articles)) {
+        for (let key in fileConfig.articles) {
+          articles[key] = buildFileConfig(
+            fileConfig.articles[key],
+            relativeRoot,
+            fenceStr,
+            `articles.${key}`,
+            configFileName
+          );
+        }
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのarticlesプロパティは連想配列(ハッシュ)で記載してください。`
+        );
+      }
+    }
+    if ("books" in fileConfig) {
+      if (isHash(fileConfig.books)) {
+        for (let key in fileConfig.books) {
+          books[key] = buildFileConfig(
+            fileConfig.books[key],
+            relativeRoot,
+            fenceStr,
+            `books.${key}`,
+            configFileName
+          );
+        }
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのbooksプロパティは連想配列(ハッシュ)で記載してください。`
+        );
+      }
+    }
+  } else if (fileConfig != null) {
+    consoleError(`[${configFileName}] 連想配列(ハッシュ)で記載してください。`);
+  }
+  return {
+    defaultFileConfig: {
+      relativeRoot: relativeRoot,
+      fenceStr: fenceStr,
+    },
+    articles: articles,
+    books: books,
+  };
+}
+
+function buildFileConfig(
+  arg: any,
+  relativeRoot: string,
+  fenceStr: FenceStr,
+  propertyName: string,
+  configFileName: string
+): FileConfig {
+  if (isHash(arg)) {
+    if ("relativeRoot" in arg) {
+      if (typeof arg.relativeRoot === "string") {
+        relativeRoot = arg.relativeRoot;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルの${propertyName}.relativeRootプロパティには文字列を指定してください。`
+        );
+      }
+    }
+    if ("fenceStr" in arg) {
+      if (isFenceStr(arg.fenceStr)) {
+        fenceStr = arg.fenceStr;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルの${propertyName}.fenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`
+        );
+      }
+    }
+  } else if (arg != null) {
+    consoleError(
+      `[${configFileName}] 設定ファイルの${propertyName}プロパティは連想配列(ハッシュ)で記載してください。`
+    );
+  }
+  return {
+    relativeRoot: relativeRoot,
+    fenceStr: fenceStr,
+  };
+}
+
+function isHash(arg: unknown) {
+  return typeof arg == "object" && !Array.isArray(arg);
+}
+
+function getArticleFiles(basePath: string) {
+  let articleFiles: string[] = [];
   try {
     const articleAllFiles = fs.readdirSync(
-      join(process.cwd(), articlesDirectoryName)
+      join(basePath, articlesDirectoryName)
     );
     articleAllFiles.sort();
     articleFiles = articleAllFiles
-      .filter((f) => f.match(mdRegex))
+      .filter((f) => f.match(/\.md$/))
       .map((f) => join(articlesDirectoryName, f));
   } catch (e) {
-    console.error(
-      colors.red(
-        `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
-      )
+    consoleError(
+      `プロジェクトルートに${articlesDirectoryName}ディレクトリがありません。`
     );
-    process.exitCode = 1;
   }
+  return articleFiles;
+}
 
+function getChapterFiles(basePath: string) {
   const chapterFiles: string[] = [];
   try {
-    let allBookDirs = fs.readdirSync(join(process.cwd(), booksDirectoryName));
+    let allBookDirs = fs.readdirSync(join(basePath, booksDirectoryName));
     let bookDirs = allBookDirs.filter((f) => {
       try {
-        return fs
-          .statSync(join(process.cwd(), booksDirectoryName, f))
-          .isDirectory();
+        return fs.statSync(join(basePath, booksDirectoryName, f)).isDirectory();
       } catch (e) {
         return false;
       }
@@ -58,11 +212,11 @@ export function main() {
     bookDirs.forEach((bookDir) => {
       try {
         const bookChapterAllFiles = fs.readdirSync(
-          join(process.cwd(), booksDirectoryName, bookDir)
+          join(basePath, booksDirectoryName, bookDir)
         );
         bookChapterAllFiles.sort();
         bookChapterAllFiles
-          .filter((f) => f.match(mdRegex))
+          .filter((f) => f.match(/\.md$/))
           .forEach((f) =>
             chapterFiles.push(join(booksDirectoryName, bookDir, f))
           );
@@ -71,68 +225,120 @@ export function main() {
       }
     });
   } catch (e) {
-    console.error(
-      colors.red(
-        `プロジェクトルートに${booksDirectoryName}ディレクトリを作成してください`
-      )
+    consoleError(
+      `プロジェクトルートに${booksDirectoryName}ディレクトリがありません。`
     );
-    process.exitCode = 1;
   }
+  return chapterFiles;
+}
 
-  if (process.exitCode == 1) {
-    console.info(colors.cyan(`[ END ] zmce`));
-  } else {
-    const codeEmbed = (relativePath: string) => {
-      let text;
-      try {
-        text = fs.readFileSync(join(process.cwd(), relativePath), "utf8");
-      } catch (e) {
-        return;
-      }
-      let afterText = text.replace(
-        replaceCodePattern,
-        (
-          match,
-          beginMark,
-          codeType,
-          codeName,
-          codePath,
-          other,
-          code,
-          afterMark
-        ) => {
-          let afterCode;
-          try {
-            afterCode = fs.readFileSync(
-              join(process.cwd(), modulesDirectoryName, codePath.trim()),
-              "utf8"
-            );
-          } catch (e) {
-            console.warn(
-              colors.yellow(
-                `[${relativePath}] モジュールディレクトリに「${codePath.trim()}」ファイルがありません`
-              )
-            );
-            return match;
-          }
-          if (checkPattern.test(afterCode)) {
-            console.warn(
-              colors.yellow(
-                `[${relativePath}] 「${codePath.trim()}」ファイル内に使用できないパターン(^${replaceCodeSymbol})が含まれています。`
-              )
-            );
-            return match;
-          }
-          return `${beginMark}${codeType}:${codeName}:${codePath}${other}\n${afterCode}\n${afterMark}`;
-        }
-      );
-      if (afterText != text) {
-        fs.writeFileSync(join(process.cwd(), relativePath), afterText, "utf8");
-        console.info(`[${relativePath}] コードブロックを修正しました。`);
-      }
-    };
-    articleFiles?.forEach((f) => codeEmbed(f));
-    chapterFiles.forEach((f) => codeEmbed(f));
-    console.info(colors.cyan(`[ END ] zmce`));
+function articleFilesCodeEmbed(
+  basePath: string,
+  articleFiles: string[],
+  config: Config
+): void {
+  articleFiles.forEach((f) => {
+    let fileKey = basename(f, ".md");
+    codeEmbed(
+      basePath,
+      f,
+      config.articles[fileKey] || config.defaultFileConfig
+    );
+  });
+}
+
+function chapterFilesCodeEmbed(
+  basePath: string,
+  chapterFiles: string[],
+  config: Config
+): void {
+  chapterFiles.forEach((f) => {
+    let fileKey = basename(dirname(f));
+    codeEmbed(basePath, f, config.books[fileKey] || config.defaultFileConfig);
+  });
+}
+function codeEmbed(
+  basePath: string,
+  relativePath: string,
+  fileConfig: FileConfig
+): void {
+  let text;
+  try {
+    text = fs.readFileSync(join(basePath, relativePath), "utf8");
+  } catch (e) {
+    return;
   }
+  let afterText = text.replace(
+    getReplaceCodePattern(fileConfig.fenceStr),
+    (
+      match,
+      beginMark,
+      codeType,
+      codeName,
+      codePath,
+      other,
+      code,
+      afterMark
+    ) => {
+      let afterCode;
+      try {
+        afterCode = fs.readFileSync(
+          join(basePath, fileConfig.relativeRoot, codePath.trim()),
+          "utf8"
+        );
+      } catch (e) {
+        consoleWarn(
+          `[${relativePath}] 「${join(
+            fileConfig.relativeRoot,
+            codePath.trim()
+          )}」ファイルがありません`
+        );
+        return match;
+      }
+      if (getCheckPattern(fileConfig.fenceStr).test(afterCode)) {
+        consoleWarn(
+          `[${relativePath}] 「${join(
+            fileConfig.relativeRoot,
+            codePath.trim()
+          )}」ファイル内に使用できないパターン(^${
+            fileConfig.fenceStr
+          })が含まれています。`
+        );
+        return match;
+      }
+      return `${beginMark}${codeType}:${codeName}:${codePath}${other}\n${afterCode}\n${afterMark}`;
+    }
+  );
+  if (afterText != text) {
+    fs.writeFileSync(join(basePath, relativePath), afterText, "utf8");
+    consoleInfo(`[${relativePath}] コードブロックを修正しました。`);
+  }
+}
+
+function getReplaceCodePattern(fenceStr: string) {
+  return new RegExp(
+    `(^${fenceStr})([^${fenceStr[0]}:\n]*):([^:\n]*):([^:\n]+)(.*$)([^]*?)(^${fenceStr}$)`,
+    "gm"
+  );
+}
+
+function getCheckPattern(fenceStr: string) {
+  return new RegExp(`^${fenceStr}`, "m");
+}
+
+function consoleError(msg: string): void {
+  process.exitCode = 1;
+  console.error(colors.red(msg));
+}
+
+function consoleWarn(msg: string): void {
+  console.warn(colors.yellow(msg));
+}
+
+function consoleInfo(msg: string): void {
+  console.info(colors.cyan(msg));
+}
+
+function consoleInfoSimple(msg: string): void {
+  console.info(msg);
 }

@@ -42,91 +42,114 @@ const expectWriteFileSync = (basePath: string, expectedPath: string) => {
   });
 };
 
+const error_case_test = (testDirectory: string, errMsgs: string[]) => {
+  inSpyCwd(testDirectory, () => {
+    zmce.main();
+    expect(spyError.mock.calls).toEqual([
+      ...errMsgs.map((msg) => [colors.red(msg)]),
+    ]);
+  });
+};
+
 describe("zmce error case", () => {
+  beforeEach(() => (process.exitCode = 0));
   afterEach(() => {
     expect(spyInfo.mock.calls).toEqual([
-      [colors.cyan("[START] zmce")],
-      [colors.cyan("[ END ] zmce")],
+      ["[zmce] 処理を開始します。"],
+      ["[zmce] エラーが発生したため、置換処理を行わずに終了します。"],
     ]);
     expect(spyWarn.mock.calls).toEqual([]);
     expect(spyWriteFileSync.mock.calls).toEqual([]);
     expect(process.exitCode).toBe(1);
-    process.exitCode = 0;
   });
 
   it("not exists directories", () => {
-    inSpyCwd("test/error_case/not_exists_directories", () => {
-      zmce.main();
-      expect(spyError.mock.calls).toEqual([
-        [
-          colors.red(
-            `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
-          ),
-        ],
-        [
-          colors.red(
-            `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
-          ),
-        ],
-        [
-          colors.red(
-            `プロジェクトルートに${booksDirectoryName}ディレクトリを作成してください`
-          ),
-        ],
-      ]);
-    });
-  });
-
-  it("not exists submodules directories", () => {
-    inSpyCwd("test/error_case/not_exists_submodules_directories", () => {
-      zmce.main();
-      expect(spyError.mock.calls).toEqual([
-        [
-          colors.red(
-            `プロジェクトルートに${modulesDirectoryName}ディレクトリを作成してください`
-          ),
-        ],
-      ]);
-    });
+    error_case_test("test/error_case/not_exists_directories", [
+      `プロジェクトルートに${articlesDirectoryName}ディレクトリがありません。`,
+      `プロジェクトルートに${booksDirectoryName}ディレクトリがありません。`,
+    ]);
   });
 
   it("not exists articeles directories", () => {
-    inSpyCwd("test/error_case/not_exists_articeles_directories", () => {
-      zmce.main();
-      expect(spyError.mock.calls).toEqual([
-        [
-          colors.red(
-            `プロジェクトルートに${articlesDirectoryName}ディレクトリを作成してください`
-          ),
-        ],
-      ]);
-    });
+    error_case_test("test/error_case/not_exists_articeles_directories", [
+      `プロジェクトルートに${articlesDirectoryName}ディレクトリがありません。`,
+    ]);
   });
 
   it("not exists books directories", () => {
-    inSpyCwd("test/error_case/not_exists_books_directories", () => {
-      zmce.main();
-      expect(spyError.mock.calls).toEqual([
-        [
-          colors.red(
-            `プロジェクトルートに${booksDirectoryName}ディレクトリを作成してください`
-          ),
-        ],
-      ]);
-    });
+    error_case_test("test/error_case/not_exists_books_directories", [
+      `プロジェクトルートに${booksDirectoryName}ディレクトリがありません。`,
+    ]);
+  });
+
+  it("config not yaml format", () => {
+    error_case_test("test/error_case/config_not_yaml_format", [
+      `[zmce.config.yaml] 設定ファイルのフォーマットがyamlファイルとして不正です。`,
+    ]);
+  });
+
+  it("config not hash", () => {
+    error_case_test("test/error_case/config_not_hash", [
+      `[zmce.config.yaml] 連想配列(ハッシュ)で記載してください。`,
+    ]);
+  });
+
+  it("config relativeRoot not string", () => {
+    error_case_test("test/error_case/config_relative_root_not_string", [
+      `[zmce.config.yaml] 設定ファイルのrelativeRootプロパティには文字列を指定してください。`,
+    ]);
+  });
+
+  it("config fenceStr invalid", () => {
+    error_case_test("test/error_case/config_fence_str_invalid", [
+      `[zmce.config.yaml] 設定ファイルのfenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
+    ]);
+  });
+
+  it("config articles not hash", () => {
+    error_case_test("test/error_case/config_articles_not_hash", [
+      `[zmce.config.yaml] 設定ファイルのarticlesプロパティは連想配列(ハッシュ)で記載してください。`,
+    ]);
+  });
+
+  it("config books not hash", () => {
+    error_case_test("test/error_case/config_books_not_hash", [
+      `[zmce.config.yaml] 設定ファイルのbooksプロパティは連想配列(ハッシュ)で記載してください。`,
+    ]);
+  });
+
+  it("config each file not hash", () => {
+    error_case_test("test/error_case/config_each_file_not_hash", [
+      `[zmce.config.yaml] 設定ファイルのarticles.file1プロパティは連想配列(ハッシュ)で記載してください。`,
+    ]);
+  });
+
+  it("config each file relativeRoot not string", () => {
+    error_case_test(
+      "test/error_case/config_each_file_relative_root_not_string",
+      [
+        `[zmce.config.yaml] 設定ファイルのarticles.file1.relativeRootプロパティには文字列を指定してください。`,
+      ]
+    );
+  });
+
+  it("config each file fenceStr invalid", () => {
+    error_case_test("test/error_case/config_each_file_fence_str_invalid", [
+      `[zmce.config.yaml] 設定ファイルのarticles.file1.fenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
+    ]);
   });
 });
 
 describe("zmce warn case", () => {
+  beforeEach(() => (process.exitCode = 0));
   afterEach(() => {
     expect(spyInfo.mock.calls).toEqual([
-      [colors.cyan("[START] zmce")],
-      [colors.cyan("[ END ] zmce")],
+      ["[zmce] 処理を開始します。"],
+      ["[zmce] 処理を終了します。"],
     ]);
     expect(spyError.mock.calls).toEqual([]);
     expect(spyWriteFileSync.mock.calls).toEqual([]);
     expect(process.exitCode).toBe(0);
-    process.exitCode = 0;
   });
 
   it("not exists code file", () => {
@@ -135,7 +158,7 @@ describe("zmce warn case", () => {
       expect(spyWarn.mock.calls).toEqual([
         [
           colors.yellow(
-            "[articles/test01.md] モジュールディレクトリに「test_repository/test01.md」ファイルがありません"
+            "[articles/test01.md] 「submodules/test_repository/test01.md」ファイルがありません"
           ),
         ],
       ]);
@@ -148,7 +171,7 @@ describe("zmce warn case", () => {
       expect(spyWarn.mock.calls).toEqual([
         [
           colors.yellow(
-            "[articles/test01.md] 「test/test.md」ファイル内に使用できないパターン(^```)が含まれています。"
+            "[articles/test01.md] 「submodules/test/test.md」ファイル内に使用できないパターン(^```)が含まれています。"
           ),
         ],
       ]);
@@ -157,16 +180,16 @@ describe("zmce warn case", () => {
 });
 
 describe("zmce skip case", () => {
+  beforeEach(() => (process.exitCode = 0));
   afterEach(() => {
     expect(spyInfo.mock.calls).toEqual([
-      [colors.cyan("[START] zmce")],
-      [colors.cyan("[ END ] zmce")],
+      ["[zmce] 処理を開始します。"],
+      ["[zmce] 処理を終了します。"],
     ]);
     expect(spyWarn.mock.calls).toEqual([]);
     expect(spyError.mock.calls).toEqual([]);
     expect(spyWriteFileSync.mock.calls).toEqual([]);
     expect(process.exitCode).toBe(0);
-    process.exitCode = 0;
   });
 
   it("root md file", () => {
@@ -212,13 +235,15 @@ describe("zmce skip case", () => {
   });
 });
 
-const normal_case_test = (testDirectory: string, changeMdFiles: [string]) => {
+const normal_case_test = (testDirectory: string, changeMdFiles: string[]) => {
   inSpyCwd(join(testDirectory, "received"), () => {
     zmce.main();
     expect(spyInfo.mock.calls).toEqual([
-      [colors.cyan("[START] zmce")],
-      ...changeMdFiles.map((f) => [`[${f}] コードブロックを修正しました。`]),
-      [colors.cyan("[ END ] zmce")],
+      ["[zmce] 処理を開始します。"],
+      ...changeMdFiles.map((f) => [
+        colors.cyan(`[${f}] コードブロックを修正しました。`),
+      ]),
+      ["[zmce] 処理を終了します。"],
     ]);
     expectWriteFileSync(
       join(cwd, join(testDirectory, "received")),
@@ -228,19 +253,23 @@ const normal_case_test = (testDirectory: string, changeMdFiles: [string]) => {
 };
 
 describe("zmce normal case", () => {
+  beforeEach(() => (process.exitCode = 0));
   afterEach(() => {
     expect(spyWarn.mock.calls).toEqual([]);
     expect(spyError.mock.calls).toEqual([]);
     expect(process.exitCode).toBe(0);
-    process.exitCode = 0;
   });
 
   it("simple article init", () => {
-    normal_case_test("test/normal_case/simple_article_init", ["articles/test01.md"]);
+    normal_case_test("test/normal_case/simple_article_init", [
+      "articles/test01.md",
+    ]);
   });
 
   it("simple book init", () => {
-    normal_case_test("test/normal_case/simple_book_init", ["books/book_test/test01.md"]);
+    normal_case_test("test/normal_case/simple_book_init", [
+      "books/book_test/test01.md",
+    ]);
   });
 
   it("simple change", () => {
@@ -252,87 +281,193 @@ describe("zmce normal case", () => {
       "articles/test01.md",
     ]);
   });
+
+  it("config blank", () => {
+    normal_case_test("test/normal_case/config_blank", ["articles/test01.md"]);
+  });
+
+  it("config relativeRoot change for article", () => {
+    normal_case_test(
+      "test/normal_case/config_relative_root_change_for_article",
+      ["articles/test01.md"]
+    );
+  });
+
+  it("config fenceStr change for article", () => {
+    normal_case_test("test/normal_case/config_fence_str_change_for_article", [
+      "articles/test01.md",
+    ]);
+  });
+
+  it("config each file relativeRoot change for article", () => {
+    normal_case_test(
+      "test/normal_case/config_each_file_relative_root_change_for_article",
+      ["articles/test01.md"]
+    );
+  });
+
+  it("config each file fenceStr change for article", () => {
+    normal_case_test(
+      "test/normal_case/config_each_file_fence_str_change_for_article",
+      ["articles/test01.md"]
+    );
+  });
+
+  it("config relativeRoot change for book", () => {
+    normal_case_test("test/normal_case/config_relative_root_change_for_book", [
+      "books/book_test/test01.md",
+    ]);
+  });
+
+  it("config fenceStr change for book", () => {
+    normal_case_test("test/normal_case/config_fence_str_change_for_book", [
+      "books/book_test/test01.md",
+    ]);
+  });
+
+  it("config each file relativeRoot change for book", () => {
+    normal_case_test(
+      "test/normal_case/config_each_file_relative_root_change_for_book",
+      ["books/book_test/test01.md"]
+    );
+  });
+
+  it("config each file fenceStr change for book", () => {
+    normal_case_test(
+      "test/normal_case/config_each_file_fence_str_change_for_book",
+      ["books/book_test/test01.md"]
+    );
+  });
 });
 
 describe("zmce total case", () => {
+  beforeEach(() => (process.exitCode = 0));
   it("total case", () => {
     inSpyCwd("test/total_case/received", () => {
       zmce.main();
       expect(spyInfo.mock.calls).toEqual([
-        [colors.cyan("[START] zmce")],
-        [`[articles/03_normal01.md] コードブロックを修正しました。`],
-        [`[articles/04_total01.md] コードブロックを修正しました。`],
-        [`[articles/05_normal02.md] コードブロックを修正しました。`],
-        [`[articles/07_total02.md] コードブロックを修正しました。`],
-        [`[books/book_test1/03_normal01.md] コードブロックを修正しました。`],
-        [`[books/book_test1/04_total01.md] コードブロックを修正しました。`],
-        [`[books/book_test1/05_normal02.md] コードブロックを修正しました。`],
-        [`[books/book_test1/07_total02.md] コードブロックを修正しました。`],
-        [`[books/book_test2/03_normal01.md] コードブロックを修正しました。`],
-        [`[books/book_test2/04_total01.md] コードブロックを修正しました。`],
-        [`[books/book_test2/05_normal02.md] コードブロックを修正しました。`],
-        [`[books/book_test2/07_total02.md] コードブロックを修正しました。`],
-        [colors.cyan("[ END ] zmce")],
+        ["[zmce] 処理を開始します。"],
+        [
+          colors.cyan(
+            "[articles/03_normal01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[articles/04_total01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[articles/05_normal02.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[articles/07_total02.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test1/03_normal01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test1/04_total01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test1/05_normal02.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test1/07_total02.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test2/03_normal01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test2/04_total01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test2/05_normal02.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test2/07_total02.md] コードブロックを修正しました。"
+          ),
+        ],
+        ["[zmce] 処理を終了します。"],
       ]);
       expect(spyWarn.mock.calls).toEqual([
         [
           colors.yellow(
-            "[articles/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+            "[articles/01_warn01.md] 「submodules/not_exists/test.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[articles/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+            "[articles/04_total01.md] 「submodules/not_exists/test.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[articles/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
+            "[articles/08_warn02.md] 「submodules/test/not_exists.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[articles/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
+            "[articles/08_warn02.md] 「submodules/test/not_exists2.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test1/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+            "[books/book_test1/01_warn01.md] 「submodules/not_exists/test.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test1/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+            "[books/book_test1/04_total01.md] 「submodules/not_exists/test.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test1/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
+            "[books/book_test1/08_warn02.md] 「submodules/test/not_exists.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test1/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
+            "[books/book_test1/08_warn02.md] 「submodules/test/not_exists2.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test2/01_warn01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+            "[books/book_test2/01_warn01.md] 「submodules/not_exists/test.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test2/04_total01.md] モジュールディレクトリに「not_exists/test.js」ファイルがありません"
+            "[books/book_test2/04_total01.md] 「submodules/not_exists/test.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test2/08_warn02.md] モジュールディレクトリに「test/not_exists.js」ファイルがありません"
+            "[books/book_test2/08_warn02.md] 「submodules/test/not_exists.js」ファイルがありません"
           ),
         ],
         [
           colors.yellow(
-            "[books/book_test2/08_warn02.md] モジュールディレクトリに「test/not_exists2.js」ファイルがありません"
+            "[books/book_test2/08_warn02.md] 「submodules/test/not_exists2.js」ファイルがありません"
           ),
         ],
       ]);
@@ -342,7 +477,6 @@ describe("zmce total case", () => {
         join(cwd, "test/total_case/expected")
       );
       expect(process.exitCode).toBe(0);
-      process.exitCode = 0;
     });
   });
 });

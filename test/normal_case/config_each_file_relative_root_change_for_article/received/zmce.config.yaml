@@ -1,0 +1,4 @@
+relativeRoot: dir2
+articles:
+    test01:
+        relativeRoot: dir1
