@@ -12,6 +12,8 @@ const spyInfo = jest.spyOn(console, "info").mockImplementation((x) => x);
 const spyWarn = jest.spyOn(console, "warn").mockImplementation((x) => x);
 const spyError = jest.spyOn(console, "error").mockImplementation((x) => x);
 
+const orgFsWriteFileSync = fs.writeFileSync;
+
 const spyWriteFileSync = jest
   .spyOn(fs, "writeFileSync")
   .mockImplementation((x) => x);
@@ -338,6 +340,57 @@ describe("zmce normal case", () => {
       ["books/book_test/test01.md"]
     );
   });
+
+  it("config relative root blank", () => {
+    normal_case_test("test/normal_case/config_relative_root_blank", [
+      "articles/test01.md",
+    ]);
+  });
+
+  it("relative simple path for article", () => {
+    normal_case_test("test/normal_case/relative_simple_path_for_article", [
+      "articles/test01.md",
+    ]);
+  });
+
+  it("relative children path for article", () => {
+    normal_case_test("test/normal_case/relative_children_path_for_article", [
+      "articles/test01.md",
+    ]);
+  });
+
+  it("relative parent path for article", () => {
+    normal_case_test("test/normal_case/relative_parent_path_for_article", [
+      "articles/test01.md",
+    ]);
+  });
+
+  it("relative simple path for book", () => {
+    normal_case_test("test/normal_case/relative_simple_path_for_book", [
+      "books/book_test/test01.md",
+    ]);
+  });
+
+  it("relative children path for book", () => {
+    normal_case_test("test/normal_case/relative_children_path_for_book", [
+      "books/book_test/test01.md",
+    ]);
+  });
+
+  it("relative parent path for book", () => {
+    normal_case_test("test/normal_case/relative_parent_path_for_book", [
+      "books/book_test/test01.md",
+    ]);
+  });
+
+  // 環境依存のテストのたえめ、/tmp/下にテスト用のファイルを作成/削除する。
+  it("abs path", () => {
+    const tmpFile =
+      "/tmp/zmce_test_abs_path_ff82cd5effa4f535a15d9eb87afbf47268c47f80.js";
+    orgFsWriteFileSync(tmpFile, 'console.log("tmp_zmce_test_abs");', "utf8");
+    normal_case_test("test/normal_case/abs_path", ["articles/test01.md"]);
+    fs.removeSync(tmpFile);
+  });
 });
 
 describe("zmce total case", () => {
@@ -479,4 +532,35 @@ describe("zmce total case", () => {
       expect(process.exitCode).toBe(0);
     });
   });
+});
+
+describe("zmce description case", () => {
+  beforeEach(() => (process.exitCode = 0));
+  afterEach(() => {
+    expect(spyWarn.mock.calls).toEqual([]);
+    expect(spyError.mock.calls).toEqual([]);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it("relative path description", () => {
+    normal_case_test("test/description_case/relative_path_description", [
+      "articles/sample_article.md",
+      "books/sample_book/example1.md",
+      "books/sample_book/example2.md",
+    ]);
+  });
+
+  it("simple path description", () => {
+    normal_case_test("test/description_case/simple_path_description", [
+      "articles/sample_article.md",
+      "books/sample_book/example1.md",
+    ]);
+  });
+
+  // 以下は環境依存のコードの為コメントアウト
+  // it("abs path description", () => {
+  //   normal_case_test("test/description_case/abs_path_description", [
+  //     "articles/sample_article.md",
+  //   ]);
+  // });
 });
