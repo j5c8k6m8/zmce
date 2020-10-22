@@ -563,4 +563,28 @@ describe("zmce description case", () => {
   //     "articles/sample_article.md",
   //   ]);
   // });
+
+  it("config relative root", () => {
+    normal_case_test("test/description_case/config_relative_root", [
+      "articles/fizzbuzz_article.md",
+      "articles/sample_article.md",
+      "books/sample_book/example1.md",
+      "books/sample_book/example2.md",
+    ]);
+  });
+
+  // book -> article参照は本来であれば1回のコマンドで終るが、testはwriteをmocにしているため2回に分ける
+  it("config fence str first", () => {
+    normal_case_test("test/description_case/config_fence_str_first", [
+      "articles/sample_article.md",
+      "books/sample_book/example1.md",
+      "books/sample_book/example2.md",
+    ]);
+  });
+
+  it("config fence str second", () => {
+    normal_case_test("test/description_case/config_fence_str_second", [
+      "books/sample_book/example1.md",
+    ]);
+  });
 });

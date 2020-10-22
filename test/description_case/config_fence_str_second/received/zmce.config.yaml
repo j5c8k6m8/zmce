@@ -1,0 +1,10 @@
+relativeRoot: ""
+fenceStr: "~~~"
+# デフォルトの設定を使う場合は省略可能
+#articles:
+#    sample_article:
+#      fenceStr: "~~~"
+books:
+    # 個別に設定を上書き
+    sample_book:
+        fenceStr: "````"

@@ -1,0 +1,11 @@
+relativeRoot: "" # Zennのルートディレクトリをデフォルトに
+articles:
+    # 個別に設定を上書き
+    sample_article:
+      relativeRoot: "ref"
+    fizzbuzz_article:
+      relativeRoot: "ref/fizzbuzz"
+# デフォルトの設定を使う場合は省略可能
+#books:
+#    sample_book:
+#        relativeRoot: ""
