@@ -1,0 +1,7 @@
+relativeRoot: dir2
+books:
+    book_test:
+        relativeRoot: dir1
+        chapters:
+            test02:
+                relativeRoot: dir3

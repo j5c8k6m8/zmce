@@ -140,6 +140,12 @@ describe("zmce error case", () => {
       `[zmce.config.yaml] 設定ファイルのarticles.file1.fenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
     ]);
   });
+
+  it("config chapters not hash", () => {
+    error_case_test("test/error_case/config_chapters_not_hash", [
+      `[zmce.config.yaml] 設定ファイルのbooks.book_test.chaptersプロパティは連想配列(ハッシュ)で記載してください。`,
+    ]);
+  });
 });
 
 describe("zmce warn case", () => {
@@ -334,10 +340,24 @@ describe("zmce normal case", () => {
     );
   });
 
+  it("config each file relativeRoot change for chapter", () => {
+    normal_case_test(
+      "test/normal_case/config_each_file_relative_root_change_for_chapter",
+      ["books/book_test/test01.md", "books/book_test/test02.md"]
+    );
+  });
+
   it("config each file fenceStr change for book", () => {
     normal_case_test(
       "test/normal_case/config_each_file_fence_str_change_for_book",
       ["books/book_test/test01.md"]
+    );
+  });
+
+  it("config each file fenceStr change for chapter", () => {
+    normal_case_test(
+      "test/normal_case/config_each_file_fence_str_change_for_chapter",
+      ["books/book_test/test01.md", "books/book_test/test02.md"]
     );
   });
 

@@ -14,6 +14,7 @@ type Config = {
   defaultFileConfig: FileConfig;
   articles: { [key: string]: FileConfig };
   books: { [key: string]: FileConfig };
+  chapters: { [key: string]: FileConfig };
 };
 
 type FileConfig = {
@@ -64,6 +65,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
   let fenceStr = defaultFenceStr;
   const articles: { [key: string]: FileConfig } = {};
   const books: { [key: string]: FileConfig } = {};
+  const chapters: { [key: string]: FileConfig } = {};
   if (arg) {
     try {
       fileConfig = yaml.safeLoad(arg);
@@ -94,12 +96,12 @@ function buildConfig(arg: string | null, configFileName: string): Config {
     }
     if ("articles" in fileConfig) {
       if (isHash(fileConfig.articles)) {
-        for (let key in fileConfig.articles) {
-          articles[key] = buildFileConfig(
-            fileConfig.articles[key],
+        for (let article in fileConfig.articles) {
+          articles[article] = buildFileConfig(
+            fileConfig.articles[article],
             relativeRoot,
             fenceStr,
-            `articles.${key}`,
+            `articles.${article}`,
             configFileName
           );
         }
@@ -111,14 +113,33 @@ function buildConfig(arg: string | null, configFileName: string): Config {
     }
     if ("books" in fileConfig) {
       if (isHash(fileConfig.books)) {
-        for (let key in fileConfig.books) {
-          books[key] = buildFileConfig(
-            fileConfig.books[key],
+        for (let book in fileConfig.books) {
+          books[book] = buildFileConfig(
+            fileConfig.books[book],
             relativeRoot,
             fenceStr,
-            `books.${key}`,
+            `books.${book}`,
             configFileName
           );
+          if (isHash(fileConfig.books[book])) {
+            if ("chapters" in fileConfig.books[book]) {
+              if (isHash(fileConfig.books[book].chapters)) {
+                for (let chapter in fileConfig.books[book].chapters) {
+                  chapters[`${book}/${chapter}`] = buildFileConfig(
+                    fileConfig.books[book].chapters[chapter],
+                    books[book].relativeRoot,
+                    books[book].fenceStr,
+                    `books.${book}.chapters.${chapter}`,
+                    configFileName
+                  );
+                }
+              } else {
+                consoleError(
+                  `[${configFileName}] 設定ファイルのbooks.${book}.chaptersプロパティは連想配列(ハッシュ)で記載してください。`
+                );
+              }
+            }
+          }
         }
       } else {
         consoleError(
@@ -136,6 +157,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
     },
     articles: articles,
     books: books,
+    chapters: chapters,
   };
 }
 
@@ -253,8 +275,9 @@ function chapterFilesCodeEmbed(
   config: Config
 ): void {
   chapterFiles.forEach((f) => {
-    let fileKey = basename(dirname(f));
-    codeEmbed(basePath, f, config.books[fileKey] || config.defaultFileConfig);
+    let bookKey = basename(dirname(f));
+    let chapterKey = `${bookKey}/${basename(f, ".md")}`
+    codeEmbed(basePath, f, config.chapters[chapterKey] || config.books[bookKey] || config.defaultFileConfig);
   });
 }
 function codeEmbed(

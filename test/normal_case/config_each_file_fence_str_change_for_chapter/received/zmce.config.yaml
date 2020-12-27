@@ -1,0 +1,7 @@
+fenceStr: "````"
+books:
+    book_test:
+        fenceStr: "~~~"
+        chapters:
+            test02:
+                fenceStr: "````"
