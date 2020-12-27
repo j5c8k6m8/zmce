@@ -28,6 +28,14 @@ function isFenceStr(arg: unknown): arg is FenceStr {
   return typeof arg === "string" && /^(````*|~~~~*)$/.test(arg);
 }
 
+type ResultCount = {
+  change: number;
+  noChange: number;
+  noTarget: number;
+  warn: number;
+  skip: number;
+};
+
 export function main() {
   consoleInfoSimple(`[zmce] 処理を開始します。`);
   const cwd = process.cwd();
@@ -39,9 +47,18 @@ export function main() {
       `[zmce] エラーが発生したため、置換処理を行わずに終了します。`
     );
   } else {
-    articleFilesCodeEmbed(cwd, articleFiles, config);
-    chapterFilesCodeEmbed(cwd, chapterFiles, config);
-    consoleInfoSimple(`[zmce] 処理を終了します。`);
+    const rusultCount = {
+      change: 0,
+      noChange: 0,
+      noTarget: 0,
+      warn: 0,
+      skip: 0,
+    };
+    articleFilesCodeEmbed(cwd, articleFiles, config, rusultCount);
+    chapterFilesCodeEmbed(cwd, chapterFiles, config, rusultCount);
+    consoleInfoSimple(
+      `[zmce] 処理を終了します。(変更有 ${rusultCount.change}, 変更無 ${rusultCount.noChange}, エラー有 ${rusultCount.warn}, 対象無 ${rusultCount.noTarget}, スキップ ${rusultCount.skip})`
+    );
   }
 }
 
@@ -90,7 +107,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
         fenceStr = fileConfig.fenceStr;
       } else {
         consoleError(
-          `[${configFileName}] 設定ファイルのfenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`
+          `[${configFileName}] 設定ファイルのfenceStrプロパティには「\`」もしくは「~」の連続した3文字以上の文字列を指定してください。`
         );
       }
     }
@@ -183,7 +200,7 @@ function buildFileConfig(
         fenceStr = arg.fenceStr;
       } else {
         consoleError(
-          `[${configFileName}] 設定ファイルの${propertyName}.fenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`
+          `[${configFileName}] 設定ファイルの${propertyName}.fenceStrプロパティには「\`」もしくは「~」の連続した3文字以上の文字列を指定してください。`
         );
       }
     }
@@ -257,14 +274,16 @@ function getChapterFiles(basePath: string) {
 function articleFilesCodeEmbed(
   basePath: string,
   articleFiles: string[],
-  config: Config
+  config: Config,
+  resultCount: ResultCount
 ): void {
   articleFiles.forEach((f) => {
     let fileKey = basename(f, ".md");
     codeEmbed(
       basePath,
       f,
-      config.articles[fileKey] || config.defaultFileConfig
+      config.articles[fileKey] || config.defaultFileConfig,
+      resultCount
     );
   });
 }
@@ -272,20 +291,31 @@ function articleFilesCodeEmbed(
 function chapterFilesCodeEmbed(
   basePath: string,
   chapterFiles: string[],
-  config: Config
+  config: Config,
+  resultCount: ResultCount
 ): void {
   chapterFiles.forEach((f) => {
     let bookKey = basename(dirname(f));
-    let chapterKey = `${bookKey}/${basename(f, ".md")}`
-    codeEmbed(basePath, f, config.chapters[chapterKey] || config.books[bookKey] || config.defaultFileConfig);
+    let chapterKey = `${bookKey}/${basename(f, ".md")}`;
+    codeEmbed(
+      basePath,
+      f,
+      config.chapters[chapterKey] ||
+        config.books[bookKey] ||
+        config.defaultFileConfig,
+      resultCount
+    );
   });
 }
 function codeEmbed(
   basePath: string,
   mdPath: string,
-  fileConfig: FileConfig
+  fileConfig: FileConfig,
+  resultCount: ResultCount
 ): void {
   let text;
+  let targetFlg = false;
+  let warnFlg = false;
   try {
     text = fs.readFileSync(join(basePath, mdPath), "utf8");
   } catch (e) {
@@ -303,6 +333,7 @@ function codeEmbed(
       code,
       afterMark
     ) => {
+      targetFlg = true;
       let afterCode;
       codePath = codePath.trim();
       const [codeAbsPath, codeRelativePath] = getCodeAbsRelativePath(
@@ -312,30 +343,38 @@ function codeEmbed(
         codePath
       );
       try {
-        afterCode = fs.readFileSync(
-          codeAbsPath,
-          "utf8"
-        );
+        afterCode = fs.readFileSync(codeAbsPath, "utf8");
       } catch (e) {
-        consoleWarn(
-          `[${mdPath}] 「${codeRelativePath}」ファイルがありません`
-        );
+        consoleWarn(`[${mdPath}] 「${codeRelativePath}」ファイルがありません`);
+        warnFlg = true;
         return match;
       }
       if (getCheckPattern(fileConfig.fenceStr).test(afterCode)) {
         consoleWarn(
-          `[${mdPath}] 「${codeRelativePath}」ファイル内に使用できないパターン(^${
-            fileConfig.fenceStr
-          })が含まれています。`
+          `[${mdPath}] 「${codeRelativePath}」ファイル内に使用できないパターン(^${fileConfig.fenceStr})が含まれています。`
         );
+        warnFlg = true;
         return match;
       }
       return `${beginMark}${codeType}:${codeName}:${codePath}${other}\n${afterCode}\n${afterMark}`;
     }
   );
-  if (afterText != text) {
+  if (!targetFlg) {
+    resultCount.noTarget += 1;
+  } else if (afterText != text) {
     fs.writeFileSync(join(basePath, mdPath), afterText, "utf8");
     consoleInfo(`[${mdPath}] コードブロックを修正しました。`);
+    if (warnFlg) {
+      resultCount.warn += 1;
+    } else {
+      resultCount.change += 1;
+    }
+  } else {
+    if (warnFlg) {
+      resultCount.warn += 1;
+    } else {
+      resultCount.noChange += 1;
+    }
   }
 }
 
@@ -356,13 +395,16 @@ function getCodeAbsRelativePath(
   mdPath: string,
   codePath: string
 ): [string, string] {
-  if (codePath.startsWith('/')) {
+  if (codePath.startsWith("/")) {
     return [codePath, codePath];
-  } else if(/^(\.\/|\.\.\/)/.test(codePath)) {
-    let mdDir = dirname(mdPath)
+  } else if (/^(\.\/|\.\.\/)/.test(codePath)) {
+    let mdDir = dirname(mdPath);
     return [join(basePath, mdDir, codePath), join(mdDir, codePath)];
   } else {
-    return [join(basePath, relativeRoot, codePath), join(relativeRoot, codePath)];
+    return [
+      join(basePath, relativeRoot, codePath),
+      join(relativeRoot, codePath),
+    ];
   }
 }
 

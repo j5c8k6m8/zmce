@@ -104,7 +104,7 @@ describe("zmce error case", () => {
 
   it("config fenceStr invalid", () => {
     error_case_test("test/error_case/config_fence_str_invalid", [
-      `[zmce.config.yaml] 設定ファイルのfenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
+      `[zmce.config.yaml] 設定ファイルのfenceStrプロパティには「\`」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
     ]);
   });
 
@@ -137,7 +137,7 @@ describe("zmce error case", () => {
 
   it("config each file fenceStr invalid", () => {
     error_case_test("test/error_case/config_each_file_fence_str_invalid", [
-      `[zmce.config.yaml] 設定ファイルのarticles.file1.fenceStrプロパティには「*」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
+      `[zmce.config.yaml] 設定ファイルのarticles.file1.fenceStrプロパティには「\`」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
     ]);
   });
 
@@ -153,7 +153,9 @@ describe("zmce warn case", () => {
   afterEach(() => {
     expect(spyInfo.mock.calls).toEqual([
       ["[zmce] 処理を開始します。"],
-      ["[zmce] 処理を終了します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 1, 対象無 0, スキップ 0)",
+      ],
     ]);
     expect(spyError.mock.calls).toEqual([]);
     expect(spyWriteFileSync.mock.calls).toEqual([]);
@@ -187,12 +189,14 @@ describe("zmce warn case", () => {
   });
 });
 
-describe("zmce skip case", () => {
+describe("zmce skip no file case", () => {
   beforeEach(() => (process.exitCode = 0));
   afterEach(() => {
     expect(spyInfo.mock.calls).toEqual([
       ["[zmce] 処理を開始します。"],
-      ["[zmce] 処理を終了します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 0, 対象無 0, スキップ 0)",
+      ],
     ]);
     expect(spyWarn.mock.calls).toEqual([]);
     expect(spyError.mock.calls).toEqual([]);
@@ -223,23 +227,51 @@ describe("zmce skip case", () => {
       zmce.main();
     });
   });
+});
+
+describe("zmce skip file case", () => {
+  beforeEach(() => (process.exitCode = 0));
+  afterEach(() => {
+    expect(spyWarn.mock.calls).toEqual([]);
+    expect(spyError.mock.calls).toEqual([]);
+    expect(spyWriteFileSync.mock.calls).toEqual([]);
+    expect(process.exitCode).toBe(0);
+  });
 
   it("not exists replace code", () => {
     inSpyCwd("test/skip_case/not_exists_replace_code", () => {
       zmce.main();
     });
+    expect(spyInfo.mock.calls).toEqual([
+      ["[zmce] 処理を開始します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 0, 対象無 1, スキップ 0)",
+      ],
+    ]);
   });
 
   it("not change md file", () => {
     inSpyCwd("test/skip_case/not_change_md_file", () => {
       zmce.main();
     });
+    expect(spyInfo.mock.calls).toEqual([
+      ["[zmce] 処理を開始します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 1, エラー有 0, 対象無 0, スキップ 0)",
+      ],
+    ]);
   });
 
   it("not exists end phrase", () => {
     inSpyCwd("test/skip_case/not_exists_end_phrase", () => {
       zmce.main();
     });
+    expect(spyInfo.mock.calls).toEqual([
+      ["[zmce] 処理を開始します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 0, 対象無 1, スキップ 0)",
+      ],
+    ]);
   });
 });
 
@@ -251,7 +283,9 @@ const normal_case_test = (testDirectory: string, changeMdFiles: string[]) => {
       ...changeMdFiles.map((f) => [
         colors.cyan(`[${f}] コードブロックを修正しました。`),
       ]),
-      ["[zmce] 処理を終了します。"],
+      [
+        `[zmce] 処理を終了します。(変更有 ${changeMdFiles.length}, 変更無 0, エラー有 0, 対象無 0, スキップ 0)`,
+      ],
     ]);
     expectWriteFileSync(
       join(cwd, join(testDirectory, "received")),
@@ -480,7 +514,9 @@ describe("zmce total case", () => {
             "[books/book_test2/07_total02.md] コードブロックを修正しました。"
           ),
         ],
-        ["[zmce] 処理を終了します。"],
+        [
+          "[zmce] 処理を終了します。(変更有 9, 変更無 3, エラー有 9, 対象無 3, スキップ 0)",
+        ],
       ]);
       expect(spyWarn.mock.calls).toEqual([
         [
@@ -563,48 +599,181 @@ describe("zmce description case", () => {
   });
 
   it("relative path description", () => {
-    normal_case_test("test/description_case/relative_path_description", [
-      "articles/sample_article.md",
-      "books/sample_book/example1.md",
-      "books/sample_book/example2.md",
-    ]);
+    inSpyCwd("test/description_case/relative_path_description/received", () => {
+      zmce.main();
+      expect(spyInfo.mock.calls).toEqual([
+        ["[zmce] 処理を開始します。"],
+        [
+          colors.cyan(
+            "[articles/sample_article.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/sample_book/example1.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/sample_book/example2.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          `[zmce] 処理を終了します。(変更有 3, 変更無 0, エラー有 0, 対象無 0, スキップ 0)`,
+        ],
+      ]);
+      expectWriteFileSync(
+        join(cwd, "test/description_case/relative_path_description/received"),
+        join(cwd, "test/description_case/relative_path_description/expected")
+      );
+    });
   });
 
   it("simple path description", () => {
-    normal_case_test("test/description_case/simple_path_description", [
-      "articles/sample_article.md",
-      "books/sample_book/example1.md",
-    ]);
+    inSpyCwd("test/description_case/simple_path_description/received", () => {
+      zmce.main();
+      expect(spyInfo.mock.calls).toEqual([
+        ["[zmce] 処理を開始します。"],
+        [
+          colors.cyan(
+            "[articles/sample_article.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/sample_book/example1.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          `[zmce] 処理を終了します。(変更有 2, 変更無 0, エラー有 0, 対象無 1, スキップ 0)`,
+        ],
+      ]);
+      expectWriteFileSync(
+        join(cwd, "test/description_case/simple_path_description/received"),
+        join(cwd, "test/description_case/simple_path_description/expected")
+      );
+    });
   });
 
   // 以下は環境依存のコードの為コメントアウト
-  // it("abs path description", () => {
-  //   normal_case_test("test/description_case/abs_path_description", [
-  //     "articles/sample_article.md",
-  //   ]);
-  // });
+/*
+  it("abs path description", () => {
+    inSpyCwd("test/description_case/abs_path_description/received", () => {
+      zmce.main();
+      expect(spyInfo.mock.calls).toEqual([
+        ["[zmce] 処理を開始します。"],
+        [
+          colors.cyan(
+            "[articles/sample_article.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          `[zmce] 処理を終了します。(変更有 1, 変更無 0, エラー有 0, 対象無 0, スキップ 0)`,
+        ],
+      ]);
+      expectWriteFileSync(
+        join(cwd, "test/description_case/abs_path_description/received"),
+        join(cwd, "test/description_case/abs_path_description/expected")
+      );
+    });
+  });
+*/
 
   it("config relative root", () => {
-    normal_case_test("test/description_case/config_relative_root", [
-      "articles/fizzbuzz_article.md",
-      "articles/sample_article.md",
-      "books/sample_book/example1.md",
-      "books/sample_book/example2.md",
-    ]);
+    inSpyCwd(
+      "test/description_case/config_relative_root/received",
+      () => {
+        zmce.main();
+        expect(spyInfo.mock.calls).toEqual([
+          ["[zmce] 処理を開始します。"],
+          [
+            colors.cyan(
+              "[articles/fizzbuzz_article.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            colors.cyan(
+              "[articles/sample_article.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            colors.cyan(
+              "[books/sample_book/example1.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            colors.cyan(
+              "[books/sample_book/example2.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            `[zmce] 処理を終了します。(変更有 4, 変更無 0, エラー有 0, 対象無 0, スキップ 0)`,
+          ],
+        ]);
+        expectWriteFileSync(
+          join(cwd, "test/description_case/config_relative_root/received"),
+          join(cwd, "test/description_case/config_relative_root/expected")
+        );
+      }
+    );
   });
 
   // book -> article参照は本来であれば1回のコマンドで終るが、testはwriteをmocにしているため2回に分ける
   it("config fence str first", () => {
-    normal_case_test("test/description_case/config_fence_str_first", [
-      "articles/sample_article.md",
-      "books/sample_book/example1.md",
-      "books/sample_book/example2.md",
-    ]);
+    inSpyCwd(
+      "test/description_case/config_fence_str_first/received",
+      () => {
+        zmce.main();
+        expect(spyInfo.mock.calls).toEqual([
+          ["[zmce] 処理を開始します。"],
+          [
+            colors.cyan(
+              "[articles/sample_article.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            colors.cyan(
+              "[books/sample_book/example1.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            colors.cyan(
+              "[books/sample_book/example2.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            `[zmce] 処理を終了します。(変更有 3, 変更無 0, エラー有 0, 対象無 0, スキップ 0)`,
+          ],
+        ]);
+        expectWriteFileSync(
+          join(cwd, "test/description_case/config_fence_str_first/received"),
+          join(cwd, "test/description_case/config_fence_str_first/expected")
+        );
+      }
+    );
   });
 
   it("config fence str second", () => {
-    normal_case_test("test/description_case/config_fence_str_second", [
-      "books/sample_book/example1.md",
-    ]);
+    inSpyCwd(
+      "test/description_case/config_fence_str_second/received",
+      () => {
+        zmce.main();
+        expect(spyInfo.mock.calls).toEqual([
+          ["[zmce] 処理を開始します。"],
+          [
+            colors.cyan(
+              "[books/sample_book/example1.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            `[zmce] 処理を終了します。(変更有 1, 変更無 2, エラー有 0, 対象無 0, スキップ 0)`,
+          ],
+        ]);
+        expectWriteFileSync(
+          join(cwd, "test/description_case/config_fence_str_second/received"),
+          join(cwd, "test/description_case/config_fence_str_second/expected")
+        );
+      }
+    );
   });
 });
