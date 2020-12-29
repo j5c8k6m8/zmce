@@ -108,6 +108,12 @@ describe("zmce error case", () => {
     ]);
   });
 
+  it("config skip not boolean", () => {
+    error_case_test("test/error_case/config_skip_not_boolean", [
+      `[zmce.config.yaml] 設定ファイルのskipプロパティにはtrue/falseを指定してください。`,
+    ]);
+  });
+
   it("config articles not hash", () => {
     error_case_test("test/error_case/config_articles_not_hash", [
       `[zmce.config.yaml] 設定ファイルのarticlesプロパティは連想配列(ハッシュ)で記載してください。`,
@@ -138,6 +144,12 @@ describe("zmce error case", () => {
   it("config each file fenceStr invalid", () => {
     error_case_test("test/error_case/config_each_file_fence_str_invalid", [
       `[zmce.config.yaml] 設定ファイルのarticles.file1.fenceStrプロパティには「\`」もしくは「~」の連続した3文字以上の文字列を指定してください。`,
+    ]);
+  });
+
+  it("config each file skip not boolean", () => {
+    error_case_test("test/error_case/config_each_file_skip_not_boolean", [
+      `[zmce.config.yaml] 設定ファイルのarticles.file1.skipプロパティにはtrue/falseを指定してください。`,
     ]);
   });
 
@@ -270,6 +282,30 @@ describe("zmce skip file case", () => {
       ["[zmce] 処理を開始します。"],
       [
         "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 0, 対象無 1, スキップ 0)",
+      ],
+    ]);
+  });
+
+  it("config skip", () => {
+    inSpyCwd("test/skip_case/config_skip", () => {
+      zmce.main();
+    });
+    expect(spyInfo.mock.calls).toEqual([
+      ["[zmce] 処理を開始します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 0, 対象無 0, スキップ 3)",
+      ],
+    ]);
+  });
+
+  it("config each file skip", () => {
+    inSpyCwd("test/skip_case/config_each_file_skip", () => {
+      zmce.main();
+    });
+    expect(spyInfo.mock.calls).toEqual([
+      ["[zmce] 処理を開始します。"],
+      [
+        "[zmce] 処理を終了します。(変更有 0, 変更無 0, エラー有 0, 対象無 0, スキップ 3)",
       ],
     ]);
   });
@@ -515,7 +551,17 @@ describe("zmce total case", () => {
           ),
         ],
         [
-          "[zmce] 処理を終了します。(変更有 9, 変更無 3, エラー有 9, 対象無 3, スキップ 0)",
+          colors.cyan(
+            "[books/book_test4/03_normal01.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          colors.cyan(
+            "[books/book_test4/05_normal02.md] コードブロックを修正しました。"
+          ),
+        ],
+        [
+          "[zmce] 処理を終了します。(変更有 11, 変更無 3, エラー有 9, 対象無 3, スキップ 5)",
         ],
       ]);
       expect(spyWarn.mock.calls).toEqual([

@@ -1,0 +1,10 @@
+articles:
+  test01:
+    skip: true
+books:
+  book_test_1:
+    skip: true
+  book_test_2:
+    chapters:
+      test01:
+        skip: true

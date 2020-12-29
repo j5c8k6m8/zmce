@@ -9,6 +9,7 @@ const booksDirectoryName = "books";
 const configFileNameWithoutExtension = "zmce.config";
 const defaultRelativeRoot = "submodules";
 const defaultFenceStr = "```";
+const defaultSkip = false;
 
 type Config = {
   defaultFileConfig: FileConfig;
@@ -18,6 +19,7 @@ type Config = {
 };
 
 type FileConfig = {
+  skip: boolean;
   relativeRoot: string;
   fenceStr: FenceStr;
 };
@@ -80,6 +82,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
   let fileConfig: any;
   let relativeRoot = defaultRelativeRoot;
   let fenceStr = defaultFenceStr;
+  let skip = defaultSkip;
   const articles: { [key: string]: FileConfig } = {};
   const books: { [key: string]: FileConfig } = {};
   const chapters: { [key: string]: FileConfig } = {};
@@ -111,6 +114,15 @@ function buildConfig(arg: string | null, configFileName: string): Config {
         );
       }
     }
+    if ("skip" in fileConfig) {
+      if (typeof fileConfig.skip === "boolean") {
+        skip = fileConfig.skip;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのskipプロパティにはtrue/falseを指定してください。`
+        );
+      }
+    }
     if ("articles" in fileConfig) {
       if (isHash(fileConfig.articles)) {
         for (let article in fileConfig.articles) {
@@ -118,6 +130,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
             fileConfig.articles[article],
             relativeRoot,
             fenceStr,
+            skip,
             `articles.${article}`,
             configFileName
           );
@@ -135,6 +148,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
             fileConfig.books[book],
             relativeRoot,
             fenceStr,
+            skip,
             `books.${book}`,
             configFileName
           );
@@ -146,6 +160,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
                     fileConfig.books[book].chapters[chapter],
                     books[book].relativeRoot,
                     books[book].fenceStr,
+                    books[book].skip,
                     `books.${book}.chapters.${chapter}`,
                     configFileName
                   );
@@ -171,6 +186,7 @@ function buildConfig(arg: string | null, configFileName: string): Config {
     defaultFileConfig: {
       relativeRoot: relativeRoot,
       fenceStr: fenceStr,
+      skip: skip,
     },
     articles: articles,
     books: books,
@@ -182,6 +198,7 @@ function buildFileConfig(
   arg: any,
   relativeRoot: string,
   fenceStr: FenceStr,
+  skip: boolean,
   propertyName: string,
   configFileName: string
 ): FileConfig {
@@ -204,6 +221,15 @@ function buildFileConfig(
         );
       }
     }
+    if ("skip" in arg) {
+      if (typeof arg.skip === "boolean") {
+        skip = arg.skip;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルの${propertyName}.skipプロパティにはtrue/falseを指定してください。`
+        );
+      }
+    }
   } else if (arg != null) {
     consoleError(
       `[${configFileName}] 設定ファイルの${propertyName}プロパティは連想配列(ハッシュ)で記載してください。`
@@ -212,6 +238,7 @@ function buildFileConfig(
   return {
     relativeRoot: relativeRoot,
     fenceStr: fenceStr,
+    skip: skip,
   };
 }
 
@@ -313,6 +340,10 @@ function codeEmbed(
   fileConfig: FileConfig,
   resultCount: ResultCount
 ): void {
+  if (fileConfig.skip) {
+    resultCount.skip += 1;
+    return;
+  }
   let text;
   let targetFlg = false;
   let warnFlg = false;
