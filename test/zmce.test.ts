@@ -822,4 +822,33 @@ describe("zmce description case", () => {
       }
     );
   });
+
+  it("config skip", () => {
+    inSpyCwd(
+      "test/description_case/config_skip/received",
+      () => {
+        zmce.main();
+        expect(spyInfo.mock.calls).toEqual([
+          ["[zmce] 処理を開始します。"],
+          [
+            colors.cyan(
+              "[articles/normal_article.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            colors.cyan(
+              "[books/normal_book/normal_chapter.md] コードブロックを修正しました。"
+            ),
+          ],
+          [
+            `[zmce] 処理を終了します。(変更有 2, 変更無 0, エラー有 0, 対象無 0, スキップ 3)`,
+          ],
+        ]);
+        expectWriteFileSync(
+          join(cwd, "test/description_case/config_skip/received"),
+          join(cwd, "test/description_case/config_skip/expected")
+        );
+      }
+    );
+  });
 });

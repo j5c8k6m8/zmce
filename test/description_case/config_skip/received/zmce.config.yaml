@@ -1,0 +1,10 @@
+articles:
+    skip_article:
+        skip: true
+books:
+    skip_book:
+        skip: true
+    normal_book:
+        chapters:
+            skip_chapter:
+                skip: true
