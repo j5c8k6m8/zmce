@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import { basename, dirname, join } from "path";
 import yaml from "js-yaml";
 import colors from "colors/safe";
+import child_process from "child_process";
 
 const articlesDirectoryName = "articles";
 const booksDirectoryName = "books";
@@ -10,6 +11,8 @@ const configFileNameWithoutExtension = "zmce.config";
 const defaultRelativeRoot = "submodules";
 const defaultFenceStr = "```";
 const defaultSkip = false;
+const defaultSessionPrompt = "$ ";
+const defaultSessionIgnoreError = false;
 
 type Config = {
   defaultFileConfig: FileConfig;
@@ -22,6 +25,8 @@ type FileConfig = {
   skip: boolean;
   relativeRoot: string;
   fenceStr: FenceStr;
+  sessionPrompt: string;
+  sessionIgnoreError: boolean;
 };
 
 type FenceStr = string;
@@ -83,6 +88,8 @@ function buildConfig(arg: string | null, configFileName: string): Config {
   let relativeRoot = defaultRelativeRoot;
   let fenceStr = defaultFenceStr;
   let skip = defaultSkip;
+  let sessionPrompt = defaultSessionPrompt;
+  let sessionIgnoreError = defaultSessionIgnoreError;
   const articles: { [key: string]: FileConfig } = {};
   const books: { [key: string]: FileConfig } = {};
   const chapters: { [key: string]: FileConfig } = {};
@@ -123,6 +130,24 @@ function buildConfig(arg: string | null, configFileName: string): Config {
         );
       }
     }
+    if ("sessionPrompt" in fileConfig) {
+      if (typeof fileConfig.sessionPrompt === "string") {
+        sessionPrompt = fileConfig.sessionPrompt;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのsessionPromptプロパティには文字列を指定してください。`
+        );
+      }
+    }
+    if ("sessionIgnoreError" in fileConfig) {
+      if (typeof fileConfig.sessionIgnoreError === "boolean") {
+        sessionIgnoreError = fileConfig.sessionIgnoreError;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルのsessionIgnoreErrorプロパティにはtrue/falseを指定してください。`
+        );
+      }
+    }
     if ("articles" in fileConfig) {
       if (isHash(fileConfig.articles)) {
         for (let article in fileConfig.articles) {
@@ -131,6 +156,8 @@ function buildConfig(arg: string | null, configFileName: string): Config {
             relativeRoot,
             fenceStr,
             skip,
+            sessionPrompt,
+            sessionIgnoreError,
             `articles.${article}`,
             configFileName
           );
@@ -149,6 +176,8 @@ function buildConfig(arg: string | null, configFileName: string): Config {
             relativeRoot,
             fenceStr,
             skip,
+            sessionPrompt,
+            sessionIgnoreError,
             `books.${book}`,
             configFileName
           );
@@ -161,6 +190,8 @@ function buildConfig(arg: string | null, configFileName: string): Config {
                     books[book].relativeRoot,
                     books[book].fenceStr,
                     books[book].skip,
+                    books[book].sessionPrompt,
+                    books[book].sessionIgnoreError,
                     `books.${book}.chapters.${chapter}`,
                     configFileName
                   );
@@ -187,6 +218,8 @@ function buildConfig(arg: string | null, configFileName: string): Config {
       relativeRoot: relativeRoot,
       fenceStr: fenceStr,
       skip: skip,
+      sessionPrompt: sessionPrompt,
+      sessionIgnoreError: sessionIgnoreError,
     },
     articles: articles,
     books: books,
@@ -199,6 +232,8 @@ function buildFileConfig(
   relativeRoot: string,
   fenceStr: FenceStr,
   skip: boolean,
+  sessionPrompt: string,
+  sessionIgnoreError: boolean,
   propertyName: string,
   configFileName: string
 ): FileConfig {
@@ -230,6 +265,24 @@ function buildFileConfig(
         );
       }
     }
+    if ("sessionPrompt" in arg) {
+      if (typeof arg.sessionPrompt === "string") {
+        sessionPrompt = arg.sessionPrompt;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルの${propertyName}.sessionPromptプロパティには文字列を指定してください。`
+        );
+      }
+    }
+    if ("sessionIgnoreError" in arg) {
+      if (typeof arg.sessionIgnoreError === "boolean") {
+        sessionIgnoreError = arg.sessionIgnoreError;
+      } else {
+        consoleError(
+          `[${configFileName}] 設定ファイルの${propertyName}.sessionIgnoreErrorプロパティにはtrue/falseを指定してください。`
+        );
+      }
+    }
   } else if (arg != null) {
     consoleError(
       `[${configFileName}] 設定ファイルの${propertyName}プロパティは連想配列(ハッシュ)で記載してください。`
@@ -239,6 +292,8 @@ function buildFileConfig(
     relativeRoot: relativeRoot,
     fenceStr: fenceStr,
     skip: skip,
+    sessionPrompt: sessionPrompt,
+    sessionIgnoreError: sessionIgnoreError,
   };
 }
 
@@ -356,36 +411,74 @@ function codeEmbed(
     getReplaceCodePattern(fileConfig.fenceStr),
     (
       match,
-      beginMark,
-      codeType,
-      codeName,
-      codePath,
-      other,
-      code,
-      afterMark
+      beginMark: string,
+      codeType: string,
+      codeName: string,
+      codePath: string,
+      other: string,
+      code: string,
+      afterMark: string
     ) => {
       targetFlg = true;
-      let afterCode;
+      let afterCode = "";
       codePath = codePath.trim();
-      const [codeAbsPath, codeRelativePath] = getCodeAbsRelativePath(
-        basePath,
-        fileConfig.relativeRoot,
-        mdPath,
-        codePath
-      );
-      try {
-        afterCode = fs.readFileSync(codeAbsPath, "utf8");
-      } catch (e) {
-        consoleWarn(`[${mdPath}] 「${codeRelativePath}」ファイルがありません`);
-        warnFlg = true;
-        return match;
-      }
-      if (getCheckPattern(fileConfig.fenceStr).test(afterCode)) {
-        consoleWarn(
-          `[${mdPath}] 「${codeRelativePath}」ファイル内に使用できないパターン(^${fileConfig.fenceStr})が含まれています。`
+      if (codePath.startsWith("exec ")) {
+        let command = codePath.substring(5); // 5 == "exec ".length
+        try {
+          afterCode += child_process.execSync(command);
+        } catch (e) {
+          consoleWarn(
+            `[${mdPath}] exec 「${command}」コマンドに失敗しました。status: ${e.status}, message: ${e.message}, stdout: ${e.stdout}, stderr: ${e.stderr}`
+          );
+          warnFlg = true;
+          return match;
+        }
+      } else if (codePath.startsWith("session ")) {
+        let commands = codePath.substring(8).split(";"); // 8 == "session ".length
+        for (let i in commands) {
+          let command = commands[i];
+          let execCommand = command;
+          afterCode += fileConfig.sessionPrompt + command + "\n";
+          if (fileConfig.sessionIgnoreError && !command.includes(" 2>")) {
+            execCommand += " 2>&1";
+          }
+          try {
+            afterCode += child_process.execSync(execCommand);
+          } catch (e) {
+            if (fileConfig.sessionIgnoreError) {
+              afterCode += e.stdout;
+            } else {
+              consoleWarn(
+                `[${mdPath}] sessionの「${command}」コマンドに失敗しました。status: ${e.status}, message: ${e.message}, stdout: ${e.stdout}, stderr: ${e.stderr}`
+              );
+              warnFlg = true;
+              return match;
+            }
+          }
+        }
+      } else {
+        const [codeAbsPath, codeRelativePath] = getCodeAbsRelativePath(
+          basePath,
+          fileConfig.relativeRoot,
+          mdPath,
+          codePath
         );
-        warnFlg = true;
-        return match;
+        try {
+          afterCode = fs.readFileSync(codeAbsPath, "utf8");
+        } catch (e) {
+          consoleWarn(
+            `[${mdPath}] 「${codeRelativePath}」ファイルがありません`
+          );
+          warnFlg = true;
+          return match;
+        }
+        if (getCheckPattern(fileConfig.fenceStr).test(afterCode)) {
+          consoleWarn(
+            `[${mdPath}] 「${codeRelativePath}」ファイル内に使用できないパターン(^${fileConfig.fenceStr})が含まれています。`
+          );
+          warnFlg = true;
+          return match;
+        }
       }
       return `${beginMark}${codeType}:${codeName}:${codePath}${other}\n${afterCode}\n${afterMark}`;
     }
