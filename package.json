@@ -18,7 +18,7 @@
     "url": "git+https://github.com/j5c8k6m8/zmce.git"
   },
   "dependencies": {
-    "fs-extra": "^9.0.1",
+    "fs-extra": "^10.0.0",
     "colors": "1.4.0",
     "js-yaml": "^3.14.0"
   },
